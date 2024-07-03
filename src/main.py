@@ -42,8 +42,14 @@ def parseCoordinatesFromStringCoordinates(stringCoordinates: str) -> Tuple[int, 
 def parseCoordinatesFromTeleportCommand(teleportCommand: str) -> Tuple[int, int]:
     pass
 
-def createConfig(): # if the config file doesn't exist this file needs to create it, for dev purposes since it already exists i'm not making this function
-    pass
+def createConfig(): # if the config file doesn't exist this function needs to create it
+    blankConfig = {
+        "gameDirectory": None,
+        "targetIpAddress": None
+    }
+    with open("./config.json", "x") as configFile:
+        configFile.write(json.dumps(blankConfig))
+
 def getConfig():
     with open("./config.json","r") as configFile:
         return json.loads(configFile.read())
@@ -56,6 +62,10 @@ def main() -> None:
 
     logging.warning("Currently, this tool only supports multiplayer servers. Singleplayer worlds will be added in the future.") # todo: you know what
 
+    if "config.json" not in os.listdir("."):
+        logging.info("A config.json file was not found at the project root. Creating a new one...")
+        createConfig()
+    
     config = getConfig()
     if config["gameDirectory"] == None: # it's at it's default value of null
         logging.warning("No game instance directory was set! Please type the path to your \".minecraft\" directory below:")

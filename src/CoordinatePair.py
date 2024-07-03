@@ -1,2 +1,0 @@
-class CoordinatePair(tuple):
-    pass

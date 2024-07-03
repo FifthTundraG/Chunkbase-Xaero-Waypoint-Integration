@@ -75,7 +75,7 @@ class XaeroWaypoints:
             with open(file, "r") as waypointFile:
                 waypointsData: list[str] = waypointFile.read().split("\n")[3:-1]
         except FileNotFoundError:
-            logging.warning(f"Unable to find file \"{file}\". It's possible no waypoints have been created in that dimension.")
+            logging.warning(f"Unable to find file \"{file}\". It's possible no waypoints have been created in that dimension. There is a high chance of experiencing an error when trying to add a waypoint to this dimension.")
             return None
         for i in waypointsData:
             newPyPoints.append(self.convertXaeroToPyPoint(i))
