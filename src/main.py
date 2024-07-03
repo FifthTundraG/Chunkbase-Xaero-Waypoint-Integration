@@ -20,7 +20,7 @@ COMMANDS = {
 
 Description
     Required Arguments: 
-        coordinates - The X, (Y), and Z of the waypoint. Can be copy/pasted in this format (what you see when clicking on an object): "X: -6,652 Z: -5,420" or what the copy button gives you: "/tp -1392 ~ -1264". You can also pass a Tuple that contains the coordinates, ex. (432, 77, -98). If a Y-value is not provided it is set to 63.
+        coordinates: The X, (Y), and Z of the waypoint. Can be copy/pasted in this format (what you see when clicking on an object): "X: -6,652 Z: -5,420" or what the copy button gives you: "/tp -1392 ~ -1264". You can also pass a Tuple that contains the coordinates, ex. (432, 77, -98). If a Y-value is not provided it is set to 63.
     Flags: 
         --dimension [value]: What dimension to put the waypoint in. Allowed values are: "overworld", "nether", "the_end". Default value: "overworld"
         --name [value]: The name of the waypoint. Cannot have spaces. Default value: "new waypont"
@@ -55,9 +55,15 @@ def parseCoordinatesFromStringCoordinates(stringCoordinates: str) -> Tuple[int, 
         return (removeCommasFromNumber(splitList[1]), 63, removeCommasFromNumber(splitList[3]))
     elif len(splitList) == 6: # is an X Y Z pair (yes Y coord)
         return (removeCommasFromNumber(splitList[1]), removeCommasFromNumber(splitList[3]), removeCommasFromNumber(splitList[5]))
+    else:
+        logging.critical("The provided value for the \"add\" command was recognized as string coordinates, but appears to be malformed. Double-check the provided coordinates to make sure they are correct. This is a fatal error, and program execution will now end.")
+        exit()
 
-def parseCoordinatesFromTeleportCommand(teleportCommand: str) -> Tuple[int, int, int]:
-    pass
+def parseCoordinatesFromTeleportCommand(teleportCommand: str) -> Tuple[int, int, int]: # ex: /tp 7540 ~ -11516
+    splitList = teleportCommand.split(" ")
+    if splitList[2] == "~": # so no Z value is provided
+        splitList[2] = "63"
+    return (splitList[1], splitList[2], splitList[3])
 
 def createConfig() -> None: # if the config file doesn't exist this function needs to create it
     blankConfig = {
@@ -74,10 +80,12 @@ def writeConfig(config: dict) -> None:
     with open("./config.json","w") as configFile:
         configFile.write(json.dumps(config))
 
+#* this isn't in main() because when it's execution is started again (if gameDirectory config is malformed) we don't want this message printing write
+# we don't use logging.warning() because basicConfig hasn't run yet (it's in main)
+print("[WARNING] Currently, this tool only supports multiplayer servers. Singleplayer worlds will be added in the future.") # todo: you know what
+
 def main() -> None:
     logging.basicConfig(format='[%(levelname)s] %(message)s',level=logging.INFO)
-
-    logging.warning("Currently, this tool only supports multiplayer servers. Singleplayer worlds will be added in the future.") # todo: you know what
 
     if "config.json" not in os.listdir("."):
         logging.info("A config.json file was not found at the project root. Creating a new one...")
@@ -95,11 +103,15 @@ def main() -> None:
     # we also put it in a try/except for a FileNotFoundError to check if the dir even exists
     try:
         if "logs" not in os.listdir(config["gameDirectory"]):
-            logging.error(f"The provided .minecraft directory ({config["gameDirectory"]}) does not appear to be valid.")
-            exit() # todo: make this ask for a new dir
+            logging.error(f"The provided .minecraft directory ({config["gameDirectory"]}) does not appear to be valid. Resetting config value...")
+            config["gameDirectory"] = None #* set the config value to None and write it to file, then restart execution of main() so that the program detects it's None and will ask for a dir to use.
+            writeConfig(config)
+            main()
     except FileNotFoundError:
-        logging.error(f"The provided .minecraft directory ({config["gameDirectory"]}) does not exist.")
-        exit()
+        logging.error(f"The provided .minecraft directory ({config["gameDirectory"]}) does not exist. Resetting config value...")
+        config["gameDirectory"] = None # see above comment
+        writeConfig(config)
+        main()
     # todo: check for trailing slash in gameDirectory and if there is one remove it
 
     # check that both minimap and world map are installed by looking in .minecraft/config for their config files
@@ -115,12 +127,15 @@ def main() -> None:
     if config["targetIpAddress"] == None:
         logging.warning("No target IP address was set! Please type the IP address of the server you want to add the waypoints to below:")
         targetIP = input("> ")
-        if not isValidIPv4Address(targetIP):
-            logging.error("The provided target IP address is not valid.")
-            exit()
         config["targetIpAddress"] = targetIP
         writeConfig(config)
         logging.info(f"Set targetIpAddress to {targetIP}!")
+    
+    if not isValidIPv4Address(config["targetIpAddress"]):
+            logging.error(f"The provided target IP address ({config["targetIpAddress"]}) is not valid. Resetting config value...")
+            config["targetIpAddress"] = None #* set the config value to None and write it to file, then restart execution of main() so that the program detects it's None and will ask for a dir to use.
+            writeConfig(config)
+            main()
 
     logging.info(f"Using \"{config["gameDirectory"]}\" as gameDirectory.")
     logging.info(f"Using \"{config["targetIpAddress"]}\" as targetIpAddress.")
@@ -250,7 +265,7 @@ def main() -> None:
             if userCommand["value"] != "": # a value is provided
                 # check if the input is a valid command
                 if userCommand["value"] not in COMMANDS:
-                    logging.error(f"The \"{userCommand["corecommand"]}\" command does not exist.")
+                    logging.error(f"The \"{userCommand["value"]}\" command does not exist.")
                     continue
                 # check if the command even has help documented:
                 if "CHELP" not in COMMANDS[userCommand["value"]]:
