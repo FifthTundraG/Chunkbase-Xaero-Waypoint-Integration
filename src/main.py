@@ -5,6 +5,7 @@ import logging
 import json
 from typing import Tuple
 import os
+from ast import literal_eval # used for if a tuple is passed into the "add" command making that string into a tuple
 
 from CoordinateConverter import CoordinateConverter
 from helper import removeCommasFromNumber, isValidIPv4Address
@@ -16,18 +17,25 @@ from XaeroWaypoints import XaeroWaypoints, XaeroWaypointColors
 COMMANDS = {
     "add": {
         "CHELP": """Usage: add <flags> [coordinates]
-        Description
 
-        Required Arguments: 
-        coordinates - The X, (Y), and Z of the waypoint. Can be copy/pasted in this format (what you see when clicking on an object): "X: -6,652 Z: -5,420", or this format (what the copy button gives you): /tp -1392 ~ -1264. If a Y-value is not provided it is set to 63.
-        Flags: 
-        --dimension [value]: What dimension to put the waypoint in. Allowed values are: "overworld", "nether", "the_end". "overworld" is the default value.
+Description
+    Required Arguments: 
+        coordinates - The X, (Y), and Z of the waypoint. Can be copy/pasted in this format (what you see when clicking on an object): "X: -6,652 Z: -5,420" or what the copy button gives you: "/tp -1392 ~ -1264". You can also pass a Tuple that contains the coordinates, ex. (432, 77, -98). If a Y-value is not provided it is set to 63.
+    Flags: 
+        --dimension [value]: What dimension to put the waypoint in. Allowed values are: "overworld", "nether", "the_end". Default value: "overworld"
+        --name [value]: The name of the waypoint. Cannot have spaces. Default value: "new waypont"
+        --initial [value]: The initial to show for the waypoint. Cannot exceed # characters. Default value: waypointName[0].upper() (the first char of waypointName uppercased)
+        --color [value]: The color of the waypoint. Should be an integer from 0-15. Use the constants in the class XaeroWaypointColors to see the colors these numbers translate to. Default value: XaeroWaypointColors.GREEN
         --innether: Whether to translate Overworld coordinates to Nether coordinates and put the waypoint in the Nether. Y-level is set to 128 for Nether Roof travel.
         --inoverworld: Whether to translate Nether coordinates to Overworld coordinates and put the waypoint in the Overworld. Y-level is set to 63 since that's the Ocean level.""",
-        "CFLAGS": { #* format is the flag then whether it has an input afterwards as it's default value, so for --dimension since it takes a value it's value is the default value "overworld", but since --innether doesn't take a value it is False
-            "--dimension": XaeroWaypoints.OVERWORLD,
+        # todo?: should CFLAGS contain help for the flags?
+        "CFLAGS": { #* format is the flag then whether it has an input afterwards, so for --dimension since it takes a value it's value is True, but since --innether doesn't take a value it is False
+            "--dimension": True,
+            "--name": True,
+            "--initial": True,
+            "--color": True,
             "--innether": False, # says "these coordinates are from the overworld, but make the waypoint in the nether (divided by 8). All waypoint's Y levels will be set to 128 for nether roof travel purposes."
-            "--inoverworld": False, # says "these coordinates are from the nether, but make the waypoint in the overworld (multiplied by 8)"
+            "--inoverworld": False # says "these coordinates are from the nether, but make the waypoint in the overworld (multiplied by 8)"
         },
         "CVALUE": True
     },
@@ -48,10 +56,10 @@ def parseCoordinatesFromStringCoordinates(stringCoordinates: str) -> Tuple[int, 
     elif len(splitList) == 6: # is an X Y Z pair (yes Y coord)
         return (removeCommasFromNumber(splitList[1]), removeCommasFromNumber(splitList[3]), removeCommasFromNumber(splitList[5]))
 
-def parseCoordinatesFromTeleportCommand(teleportCommand: str) -> Tuple[int, int]:
+def parseCoordinatesFromTeleportCommand(teleportCommand: str) -> Tuple[int, int, int]:
     pass
 
-def createConfig(): # if the config file doesn't exist this function needs to create it
+def createConfig() -> None: # if the config file doesn't exist this function needs to create it
     blankConfig = {
         "gameDirectory": None,
         "targetIpAddress": None
@@ -88,7 +96,7 @@ def main() -> None:
     try:
         if "logs" not in os.listdir(config["gameDirectory"]):
             logging.error(f"The provided .minecraft directory ({config["gameDirectory"]}) does not appear to be valid.")
-            exit()
+            exit() # todo: make this ask for a new dir
     except FileNotFoundError:
         logging.error(f"The provided .minecraft directory ({config["gameDirectory"]}) does not exist.")
         exit()
@@ -137,9 +145,12 @@ def main() -> None:
             if v[0] == "-" and v[1] == "-": # so the start of the component is "--" (aka a flag)
                 flagValue = None
                 flagValueIndex = None
-                if COMMANDS[userInputComponents[0]]["CFLAGS"][v] != False:
-                    flagValue = userInputComponents[i+1]
-                    flagValueIndex = i+1
+                try: # this is in a try/catch block because if a flag doesn't exist, this will error out because it can't find it in CFLAGS, but the check for if it exists is below this function, once userCommand["flags"] is already defined. Instead of re-writing most of the stuff here to work even it it doesn't exist, putting it in a try/catch and just ignoring the error is best, since an error with an actual error message will show up after this line, anyway
+                    if COMMANDS[userInputComponents[0]]["CFLAGS"][v] != False:
+                        flagValue = userInputComponents[i+1]
+                        flagValueIndex = i+1
+                except Exception:
+                    pass
                 userFlags.append({
                     "flag": v,
                     "flagIndex": i,
@@ -169,20 +180,26 @@ def main() -> None:
         for i in userCommand["flags"]:
             if i["flag"] not in COMMANDS[userCommand["corecommand"]]["CFLAGS"]:
                 logging.error(f"Invalid flag \"{i["flag"]}\" for command \"{userCommand["corecommand"]}\"")
-                continue
+                continue #! since this is a for loop, saying continue here will end THIS for loop, not the while running: for loop. big issue but fix later
         if COMMANDS[userCommand["corecommand"]]["CVALUE"] == True and userCommand["value"] == "":
             logging.error(f"Command \"{userCommand["corecommand"]}\" requires an input.")
             continue
         
         if userCommand["corecommand"] == "add":
-            if userCommand["value"][0] == "X": # todo: ternary?
+            if userCommand["value"][0] == "X":
                 waypointCoordinates: Tuple[int, int, int] = parseCoordinatesFromStringCoordinates(userCommand["value"])
             elif userCommand["value"][0] == "/":
                 waypointCoordinates: Tuple[int, int, int] = parseCoordinatesFromTeleportCommand(userCommand["value"])
+            elif userCommand["value"][0] == "(" and userCommand["value"][-1] == ")": # a tuple (if the user made it correctly)
+                waypointCoordinates: Tuple[int, int, int] = literal_eval(userCommand["value"])
             else:
                 logging.error(f"Failed to parse string \"{userCommand["value"]}\"")
                 continue
-
+            
+            # these are default values that are changed if certain values are present in the flags below
+            waypointName: str = "new waypoint"
+            waypointInitials: str = waypointName[0].upper()
+            waypointColor: str = str(XaeroWaypointColors.GREEN)
             waypointDimension: str = XaeroWaypoints.OVERWORLD
             
             for i in userCommand["flags"]:
@@ -205,14 +222,21 @@ def main() -> None:
                     else:
                         logging.error("Invalid --dimension flag value: "+i["value"])
                         continue
+                if i["flag"] == "--name":
+                    waypointName = i["value"]
+                if i["flag"] == "--initial":
+                    # todo: add a limit on the number of chars this can be, idk what xaero uses but i know that there is one
+                    waypointInitials = i["value"]
+                if i["flag"] == "--color":
+                    waypointColor = i["value"]
                 
             xaeroWaypoints.addWaypoint({
-                "name": "new waypoint",
-                "initials": "N",
+                "name": waypointName,
+                "initials": waypointInitials,
                 "x": waypointCoordinates[0],
                 "y": waypointCoordinates[1], # make this work
                 "z": waypointCoordinates[2],
-                "color": XaeroWaypointColors.GREEN,
+                "color": waypointColor,
                 "disabled": "false",
                 "type": 0,
                 "set": "gui.xaero_default",
@@ -221,7 +245,7 @@ def main() -> None:
                 "visibility_type": "1",
                 "destination": "false"
             }, waypointDimension)
-            logging.info("Created waypoint at "+str(waypointCoordinates)+"!") # todo: make this output ACTUAL coords (this doesn't account for rounding)
+            logging.info(f"Created waypoint \"{waypointName}\" at {str(waypointCoordinates)}!") # todo: make this output ACTUAL coords (this doesn't account for rounding)
         elif userCommand["corecommand"] == "help":
             if userCommand["value"] != "": # a value is provided
                 # check if the input is a valid command
@@ -240,6 +264,7 @@ def main() -> None:
                 print("Type \"help <command>\" for additional information about the command.")
         elif userCommand["corecommand"] == "exit":
             running = False
+    exitInput = input("Press any key to exit... ")
 
 if __name__ == "__main__":
     main()
