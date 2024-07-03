@@ -14,7 +14,16 @@ from XaeroWaypoints import XaeroWaypoints, XaeroWaypointColors
 # CVALUE is a reserved keyword for saying "this command can take a value after the flags"
 # CHELP is for giving help instructions for the command
 COMMANDS = {
-    "add": { # todo: add help
+    "add": {
+        "CHELP": """Usage: add <flags> [coordinates]
+        Description
+
+        Required Arguments: 
+        coordinates - The X, (Y), and Z of the waypoint. Can be copy/pasted in this format (what you see when clicking on an object): "X: -6,652 Z: -5,420", or this format (what the copy button gives you): /tp -1392 ~ -1264. If a Y-value is not provided it is set to 63.
+        Flags: 
+        --dimension [value]: What dimension to put the waypoint in. Allowed values are: "overworld", "nether", "the_end". "overworld" is the default value.
+        --innether: Whether to translate Overworld coordinates to Nether coordinates and put the waypoint in the Nether. Y-level is set to 128 for Nether Roof travel.
+        --inoverworld: Whether to translate Nether coordinates to Overworld coordinates and put the waypoint in the Overworld. Y-level is set to 63 since that's the Ocean level.""",
         "CFLAGS": { #* format is the flag then whether it has an input afterwards as it's default value, so for --dimension since it takes a value it's value is the default value "overworld", but since --innether doesn't take a value it is False
             "--dimension": XaeroWaypoints.OVERWORLD,
             "--innether": False, # says "these coordinates are from the overworld, but make the waypoint in the nether (divided by 8). All waypoint's Y levels will be set to 128 for nether roof travel purposes."
@@ -72,7 +81,7 @@ def main() -> None:
         minecraftDir = input("> ").replace("/","\\")
         config["gameDirectory"] = minecraftDir
         writeConfig(config)
-        logging.info(f"Successfully set gameDirectory to {minecraftDir}!")
+        logging.info(f"Set gameDirectory to {minecraftDir}!")
     # check if the directory provided is actually a valid .minecraft folder
     # we do this by looking for the "logs" directory because it will always be present in every instance of the game as long as it's ever been launched.
     # we also put it in a try/except for a FileNotFoundError to check if the dir even exists
@@ -103,7 +112,7 @@ def main() -> None:
             exit()
         config["targetIpAddress"] = targetIP
         writeConfig(config)
-        logging.info(f"Successfully set targetIpAddress to {targetIP}!")
+        logging.info(f"Set targetIpAddress to {targetIP}!")
 
     logging.info(f"Using \"{config["gameDirectory"]}\" as gameDirectory.")
     logging.info(f"Using \"{config["targetIpAddress"]}\" as targetIpAddress.")
