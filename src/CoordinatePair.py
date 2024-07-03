@@ -1,0 +1,2 @@
+class CoordinatePair(tuple):
+    pass
