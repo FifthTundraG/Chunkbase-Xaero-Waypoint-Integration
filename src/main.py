@@ -4,36 +4,40 @@
 import logging
 import json
 from typing import Tuple
+import os
 
 from CoordinateConverter import CoordinateConverter
-from helper import removeCommasFromNumber
+from helper import removeCommasFromNumber, isValidIPv4Address
 from XaeroWaypoints import XaeroWaypoints, XaeroWaypointColors
 
 # CFLAGS is a reserved keyword for saying "the following flags are valid"
 # CVALUE is a reserved keyword for saying "this command can take a value after the flags"
 # CHELP is for giving help instructions for the command
 COMMANDS = {
-    "add": {
-        "CHELP": """This command does not have documented help.""",
+    "add": { # todo: add help
         "CFLAGS": { #* format is the flag then whether it has an input afterwards as it's default value, so for --dimension since it takes a value it's value is the default value "overworld", but since --innether doesn't take a value it is False
             "--dimension": XaeroWaypoints.OVERWORLD,
             "--innether": False, # says "these coordinates are from the overworld, but make the waypoint in the nether (divided by 8). All waypoint's Y levels will be set to 128 for nether roof travel purposes."
-            "--inoverworld": False,# says "these coordinates are from the nether, but make the waypoint in the overworld (multiplied by 8)"
+            "--inoverworld": False, # says "these coordinates are from the nether, but make the waypoint in the overworld (multiplied by 8)"
         },
-        "CVALUE": True #! unused
+        "CVALUE": True
     },
     "help": {
-        "CHELP": """I seriously doubt you require additional assistance with the help command."""
+        "CHELP": """I seriously doubt you require additional assistance with the help command.""",
+        "CVALUE": False
     },
     "exit": {
-        "CHELP": """Exits the program."""
+        "CHELP": """Exits the program.""",
+        "CVALUE": False
     }
 }
 
-# todo: support finding Y value and substituting if it's not there
 def parseCoordinatesFromStringCoordinates(stringCoordinates: str) -> Tuple[int, int, int]: # ex: X: -6,652 Z: -5,420
-    splitList = stringCoordinates.split(" ") # will split into ["X:","<x-coordinate>","Z:","<y-coordinate>"]
-    return (removeCommasFromNumber(splitList[1]), 63, removeCommasFromNumber(splitList[3]))
+    splitList = stringCoordinates.split(" ") # will split into ["X:","<x-coordinate>","Z:","<y-coordinate>"] OR ["X:","<x-coordinate>","Y:","<y-coordinate>","Z:","<y-coordinate>"]
+    if len(splitList) == 4: # is an X Z pair (no Y coord)
+        return (removeCommasFromNumber(splitList[1]), 63, removeCommasFromNumber(splitList[3]))
+    elif len(splitList) == 6: # is an X Y Z pair (yes Y coord)
+        return (removeCommasFromNumber(splitList[1]), removeCommasFromNumber(splitList[3]), removeCommasFromNumber(splitList[5]))
 
 def parseCoordinatesFromTeleportCommand(teleportCommand: str) -> Tuple[int, int]:
     pass
@@ -56,18 +60,37 @@ def main() -> None:
     if config["gameDirectory"] == None: # it's at it's default value of null
         logging.warning("No game instance directory was set! Please type the path to your \".minecraft\" directory below:")
         minecraftDir = input("> ").replace("/","\\")
-        # todo: add check to make sure the dir is actually to the .minecraft folder
-        # todo: add check for trailing slash and remove it
         config["gameDirectory"] = minecraftDir
         writeConfig(config)
         logging.info(f"Successfully set gameDirectory to {minecraftDir}!")
+    # check if the directory provided is actually a valid .minecraft folder
+    # we do this by looking for the "logs" directory because it will always be present in every instance of the game as long as it's ever been launched.
+    # we also put it in a try/except for a FileNotFoundError to check if the dir even exists
+    try:
+        if "logs" not in os.listdir(config["gameDirectory"]):
+            logging.error(f"The provided .minecraft directory ({config["gameDirectory"]}) does not appear to be valid.")
+            exit()
+    except FileNotFoundError:
+        logging.error(f"The provided .minecraft directory ({config["gameDirectory"]}) does not exist.")
+        exit()
+    # todo: check for trailing slash in gameDirectory and if there is one remove it
 
-    # todo: check that both minimap and world map are installed
+    # check that both minimap and world map are installed by looking in .minecraft/config for their config files
+    # technically it's not flawless because the configs won't be generated if the game hasn't started up with the mod installed before,
+    # but the chances of that happening are less than zero. also the reason we don't look for the .jar file is because, unlike the config
+    # file, it could be renamed
+    configDirectoryContents = os.listdir(f"{config["gameDirectory"]}\\config")
+    if "xaerominimap.txt" not in configDirectoryContents:
+        logging.warning("Xaero's Minimap was not detected in this instance. You have a very high chance of receiving errors following this message.")
+    if "xaeroworldmap.txt" not in configDirectoryContents:
+        logging.warning("Xaero's World Map was not detected in this instance. You have a very high chance of receiving errors following this message.")
 
     if config["targetIpAddress"] == None:
         logging.warning("No target IP address was set! Please type the IP address of the server you want to add the waypoints to below:")
         targetIP = input("> ")
-        # todo: use regex to add check to make sure it's a valid ip, also considering ip 0 and localhost
+        if not isValidIPv4Address(targetIP):
+            logging.error("The provided target IP address is not valid.")
+            exit()
         config["targetIpAddress"] = targetIP
         writeConfig(config)
         logging.info(f"Successfully set targetIpAddress to {targetIP}!")
@@ -128,7 +151,9 @@ def main() -> None:
             if i["flag"] not in COMMANDS[userCommand["corecommand"]]["CFLAGS"]:
                 logging.error(f"Invalid flag \"{i["flag"]}\" for command \"{userCommand["corecommand"]}\"")
                 continue
-        # todo: check and make sure that a value is provided if the command requires one (CVALUE)
+        if COMMANDS[userCommand["corecommand"]]["CVALUE"] == True and userCommand["value"] == "":
+            logging.error(f"Command \"{userCommand["corecommand"]}\" requires an input.")
+            continue
         
         if userCommand["corecommand"] == "add":
             if userCommand["value"][0] == "X": # todo: ternary?
@@ -178,6 +203,22 @@ def main() -> None:
                 "destination": "false"
             }, waypointDimension)
             logging.info("Created waypoint at "+str(waypointCoordinates)+"!") # todo: make this output ACTUAL coords (this doesn't account for rounding)
+        elif userCommand["corecommand"] == "help":
+            if userCommand["value"] != "": # a value is provided
+                # check if the input is a valid command
+                if userCommand["value"] not in COMMANDS:
+                    logging.error(f"The \"{userCommand["corecommand"]}\" command does not exist.")
+                    continue
+                # check if the command even has help documented:
+                if "CHELP" not in COMMANDS[userCommand["value"]]:
+                    logging.error(f"The \"{userCommand["value"]}\" command does not have documented help.")
+                    continue
+                print(COMMANDS[userCommand["value"]]["CHELP"])
+            else: # no value is provided
+                print("List of commands:")
+                for i in COMMANDS:
+                    print("- "+i)
+                print("Type \"help <command>\" for additional information about the command.")
         elif userCommand["corecommand"] == "exit":
             running = False
 
