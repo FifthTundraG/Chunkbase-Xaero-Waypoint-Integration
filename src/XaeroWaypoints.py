@@ -1,8 +1,9 @@
 from typing import Tuple
 import os
 import logging
+from enum import Enum
 
-class XaeroWaypointColors:
+class XaeroWaypointColors(Enum):
     BLACK: int = 0
     DARK_BLUE: int = 1
     DARK_GREEN: int = 2
@@ -61,6 +62,7 @@ class XaeroWaypoints:
             print(f"({i[0]}) {i[1]}")
         mapSelection = int(input("Map ID: "))
         self.currentMap = waypointDirFiles[mapSelection]
+        logging.info(f"Using {waypointDirFiles[mapSelection]} as the map.")
 
         self.waypointsOverworld = self.parseXaeroWaypointFile(f"{waypointDirectory}\\{XaeroWaypoints.OVERWORLD}\\{self.currentMap}")
         self.waypointsNether = self.parseXaeroWaypointFile(f"{waypointDirectory}\\{XaeroWaypoints.NETHER}\\{self.currentMap}")
