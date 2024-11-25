@@ -1,17 +1,13 @@
-# Chunkbase Nether Coordinator
-# Parses the coordinates from a string of overworld coordinates from Chunkbase and spits back nether coordinates
+# Chunkbase-Xaero Waypoint Integration
+# Allows copy/pasting Chunkbase coordinates into a script and then having a waypoint created at that position.
 
 import logging
-import json
-from typing import Tuple
 import os
-from ast import literal_eval # used for if a tuple is passed into the "add" command making that string into a tuple
 
 import config
 from Console import Command, Console
-from CoordinateConverter import CoordinateConverter
-from helper import removeCommasFromNumber, isValidIPv4Address
-from XaeroWaypoints import XaeroWaypoints, XaeroWaypointColors
+from helper import isValidIPv4Address, parsePath
+from XaeroWaypoints import XaeroWaypoints
 
 # CFLAGS is a reserved keyword for saying "the following flags are valid"
 # CVALUE is a reserved keyword for saying "this command can take a value after the flags"
@@ -63,7 +59,7 @@ def main() -> None:
     
     if config.getConfig()["gameDirectory"] == None: # it's at it's default value of null
         logging.warning("No game instance directory was set! Please type the path to your \".minecraft\" directory below:")
-        minecraftDir = input("> ").replace("/","\\")
+        minecraftDir = parsePath(input("> "))
         newConfig = config.getConfig()
         newConfig["gameDirectory"] = minecraftDir
         config.writeConfig(newConfig)
@@ -91,7 +87,7 @@ def main() -> None:
     # but the chances of that happening are less than zero. also the reason we don't look for the .jar file is because, unlike the config
     # file, it could be renamed
     #* this is put here because it requires config.gameDirectory to be assigned a value and it might as well be before we do anything with IP addresses since we don't need IP addresses for this check
-    configDirectoryContents = os.listdir(f"{config.getConfig()["gameDirectory"]}\\config")
+    configDirectoryContents = os.listdir(parsePath(f"{config.getConfig()["gameDirectory"]}/config"))
     if "xaerominimap.txt" not in configDirectoryContents:
         logging.warning("Xaero's Minimap was not detected in this instance. You have a very high chance of receiving errors following this message.")
     if "xaeroworldmap.txt" not in configDirectoryContents:
@@ -118,7 +114,8 @@ def main() -> None:
     console: Console = Console()
     for i in COMMANDS:
         console.registerCommand(i, COMMANDS[i])
-    xaeroWaypoints: XaeroWaypoints = XaeroWaypoints(f"{config.getConfig()["gameDirectory"]}\\XaeroWaypoints\\Multiplayer_{config.getConfig()["targetIpAddress"]}")
+    # todo: waaypoints used to be stored in ./minecraft/XaeroWaypoints, but after update 24.3.0 (2024/08/17), it was moved to .minecraft/xaero/minimap. we should probably have reverse-compatibility just in case
+    xaeroWaypoints: XaeroWaypoints = XaeroWaypoints(parsePath(f"{config.getConfig()["gameDirectory"]}/xaero/minimap/Multiplayer_{config.getConfig()["targetIpAddress"]}"))
 
     running = True
     print("Chunkbase-Xaero Waypoint Integration Script. Type \"help\" for instructions.")

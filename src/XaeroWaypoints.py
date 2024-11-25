@@ -3,6 +3,8 @@ import os
 import logging
 from enum import Enum
 
+from helper import parsePath
+
 class XaeroWaypointColors(Enum):
     BLACK: int = 0
     DARK_BLUE: int = 1
@@ -56,7 +58,7 @@ class XaeroWaypoints:
     def __init__(self, waypointDirectory: str) -> None:
         self.waypointDirectory = waypointDirectory
 
-        waypointDirFiles = os.listdir(f"{waypointDirectory}\\dim%0") # for this we just use overworld because that one's the easiest. we might be able to use worldmap for this but who knows
+        waypointDirFiles = os.listdir(parsePath(f"{waypointDirectory}/dim%0")) # for this we just use overworld because that one's the easiest. we might be able to use worldmap for this but who knows
         print("Type the identifier associtated with which map you would like to use:")
         for i in enumerate(waypointDirFiles):
             print(f"({i[0]}) {i[1]}")
@@ -64,9 +66,9 @@ class XaeroWaypoints:
         self.currentMap = waypointDirFiles[mapSelection]
         logging.info(f"Using {waypointDirFiles[mapSelection]} as the map.")
 
-        self.waypointsOverworld = self.parseXaeroWaypointFile(f"{waypointDirectory}\\{XaeroWaypoints.OVERWORLD}\\{self.currentMap}")
-        self.waypointsNether = self.parseXaeroWaypointFile(f"{waypointDirectory}\\{XaeroWaypoints.NETHER}\\{self.currentMap}")
-        self.waypointsTheEnd = self.parseXaeroWaypointFile(f"{waypointDirectory}\\{XaeroWaypoints.THE_END}\\{self.currentMap}")
+        self.waypointsOverworld = self.parseXaeroWaypointFile(parsePath(f"{waypointDirectory}/{XaeroWaypoints.OVERWORLD}/{self.currentMap}"))
+        self.waypointsNether = self.parseXaeroWaypointFile(parsePath(f"{waypointDirectory}/{XaeroWaypoints.NETHER}/{self.currentMap}"))
+        self.waypointsTheEnd = self.parseXaeroWaypointFile(parsePath(f"{waypointDirectory}/{XaeroWaypoints.THE_END}/{self.currentMap}"))
 
         self.writeXaeroWaypointFile(self.waypointsOverworld, XaeroWaypoints.OVERWORLD)
 
@@ -116,7 +118,7 @@ class XaeroWaypoints:
         return waypointStart+waypointCSV
     
     def writeXaeroWaypointFile(self, pyPoints: list[dict[str, str | Tuple[int, int, int] | int | bool]], dimension: str):
-        with open(f"{self.waypointDirectory}\\{dimension}\\{self.currentMap}", "w") as waypointFile:
+        with open(parsePath(f"{self.waypointDirectory}/{dimension}/{self.currentMap}"), "w") as waypointFile:
         # with open(f"C:\\Users\\fifth\\AppData\\Roaming\\.minecraft\\launcher_log.txt", "w") as waypointFile:
             waypointFile.write(f"{WAYPOINT_FORMAT_MESSAGE}")
             for i in pyPoints:

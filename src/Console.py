@@ -1,7 +1,6 @@
 from ast import literal_eval
 from dataclasses import dataclass, field
 import logging
-from multiprocessing import Value
 from typing import Tuple
 
 from CoordinateConverter import CoordinateConverter
@@ -94,7 +93,7 @@ class Console:
     
     def checkCommandValidity(self, userCommand: UserCommand):
         if userCommand.corecommand not in self.commandRegistry:
-            logging.error("Invalid command.")
+            logging.error(f"Invalid command \"{userCommand.corecommand}\".")
             return False
         for i in userCommand.flags:
             if i.flag not in self.commandRegistry[userCommand.corecommand].CFLAGS:
@@ -195,7 +194,7 @@ class Console:
                 # if "CHELP" not in self.commandRegistry[userCommand.value]:
                 #     logging.error(f"The \"{userCommand.corecommand}\" command does not have documented help.")
                 #     return False
-                print(self.commandRegistry[userCommand.corecommand].CHELP)
+                print(self.commandRegistry[userCommand.value].CHELP)
             else: # no value is provided
                 print("List of commands:")
                 for i in self.commandRegistry:
